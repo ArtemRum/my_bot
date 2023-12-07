@@ -1,62 +1,119 @@
 import asyncio
 import logging
 import sys
-from os import getenv
-import random
 
-from aiogram import Bot, Dispatcher, Router, types
+from aiogram import Bot, Dispatcher, Router, types, F
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
-from aiogram.types import Message
-from aiogram.utils.markdown import hbold
+from aiogram.filters import Command, Filter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import (
+    KeyboardButton,
+    Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 
-API = '6787439807:AAEmYhMTVNTgup9O5N2vC7Wb8h-JJeoywFg'
-ID = 1319331554
-dp = Dispatcher()
 
-stickers = ["CAACAgIAAxkBAAEK3dVlaZad4GTgympBVRYh46-eLbh5AgAC8SkAAvzEcEiJUkBbZyrpzjME"]
+TOKEN, ADMIN_ID = 'TOKEN', int(ID)
+
+bot = Bot(TOKEN)
+db = Dispatcher()
+
+users = [KeyboardButton(text="Каталог"), KeyboardButton(text="Корзина")]
+admin = [users+[KeyboardButton(text='/edit')], 
+         [KeyboardButton(text="/del"), KeyboardButton(text="/add"), KeyboardButton(text="/send")]]
+
+catalog = ['Бот', 'Игра']
+shopper = []
 
 
-@dp.message(CommandStart())
-async def command_start_handler(message: Message) -> None:
-    """
-    This handler receives messages with `/start` command
-    """
-    # Most event objects have aliases for API methods that can be called in events' context
-    # For example if you want to answer to incoming message you can use `message.answer(...)` alias
-    # and the target chat will be passed to :ref:`aiogram.methods.send_message.SendMessage`
-    # method automatically or call API method directly via
-    # Bot instance: `bot.send_message(chat_id=message.chat.id, ...)`
-    await message.answer(f"Прив, {hbold(message.from_user.full_name)}!")
+class Text(Filter):
+    def __init__(self, my_text: str) -> None:
+        self.my_text = my_text
+
+    async def __call__(self, message: Message) -> bool:
+        return message.text == self.my_text
     
+class Form(StatesGroup):
+    name = State()
+    like_bots = State()
+    language = State()
+
+@db.message(Command('start'))
+async def starting(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        await message.answer(f"{message.from_user.first_name} - админ, привет !",
+                             reply_markup=ReplyKeyboardMarkup(keyboard=[admin[0]], 
+                                                              resize_keyboard=True))
+    else:
+        await message.answer(f"{message.from_user.first_name}, привет!",
+                             reply_markup=ReplyKeyboardMarkup(keyboard=[users], 
+                                                              resize_keyboard=True))
 
 
+@db.message(Command("edit"))
+async def edit(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        await message.answer("Вход в режим редактирования", 
+                             reply_markup=ReplyKeyboardMarkup(keyboard=[admin[1]], 
+                                                              resize_keyboard=True))
+    else:
+        await message.reply("Да?)\nЗабавно~")
+        
+@db.message(Command("del"))
+async def edit(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        await message.answer("Пока не готово", 
+                             reply_markup=ReplyKeyboardMarkup(keyboard=[admin[1]], 
+                                                              resize_keyboard=True))
+    else:
+        await message.reply("Да?)\nЗабавно~")
+        
+@db.message(Command("add"))
+async def edit(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        await message.answer("Пока не готово")
+    else:
+        await message.reply("Да?)\nЗабавно~")
+        
+@db.message(Command("send"))
+async def edit(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        await message.answer("Пока не готово")
+    else:
+        await message.reply("Да?)\nЗабавно~")
 
 
-@dp.message()
-async def echo_handler(message: types.Message) -> None:
-    global ID
-    """
-    Handler will forward receive a message back to the sender
-
-    By default, message handler will handle all message types (like a text, photo, sticker etc.)
-    """
-    try:
-        # Send a copy of the received message
-        await message.answer_sticker(sticker=stickers[0])
-        await message.send_copy(chat_id=ID)
-    except TypeError:
-        # But not all the types is supported to be copied so need to handle it
-        await message.answer("Хорошая попытка!")
+@db.message(Text("Корзина"))
+async def shopping_cart(message: types.Message):
+    if len(shopper) == 0: 
+        await message.answer("Корзина пуста")
+    else:
+        await message.answer('\n'.join(shopper))
 
 
+@db.message(Text("Каталог"))
+async def сatalog(message: types.Message):
+    if len(catalog) == 0: 
+        await message.answer("Каталог пуст")
+    else:
+        await message.answer('\n'.join(catalog))
+
+
+@db.message()
+async def pool_mess(message: types.Message):
+    if message.text in catalog:
+        await message.reply("Для цены и подробностей напишите ему: @HERcGORIb")
+    else:
+        await message.reply("Я не понимаю тебя...")
+    
 async def main() -> None:
     # Initialize Bot instance with a default parse mode which will be passed to all API calls
-    bot = Bot(API, parse_mode=ParseMode.HTML)
+    bot = Bot(TOKEN, parse_mode=ParseMode.HTML)
     # And the run events dispatching
-    await dp.start_polling(bot)
+    await db.start_polling(bot)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(main())
