@@ -2,7 +2,9 @@ import asyncio
 import logging
 import sys
 
-from aiogram import Bot, Dispatcher, Router, types, F
+import pandas as pd
+
+from aiogram import Bot, Dispatcher, F, Router, html
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, Filter
 from aiogram.fsm.context import FSMContext
@@ -13,6 +15,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
+
 
 
 TOKEN, ADMIN_ID = '6787439807:AAEmYhMTVNTgup9O5N2vC7Wb8h-JJeoywFg', 1319331554
@@ -26,6 +29,9 @@ admin = [users+[KeyboardButton(text='/edit')],
 
 catalog = ['Бот', 'Игра']
 
+catal = [KeyboardButton(text=i) for i in catalog]
+
+
 class Form(StatesGroup):
     type_order = State()
     text_order = State()
@@ -37,10 +43,11 @@ class Text(Filter):
     async def __call__(self, message: Message) -> bool:
         return message.text == self.my_text
 
+
 @db.message(Command('start'))
-async def starting(message: types.Message):
+async def starting(message: Message):
     if message.from_user.id == ADMIN_ID:
-        await message.answer(f"{message.from_user.first_name} - админ, привет !",
+        await message.answer(f"{message.from_user.first_name} - админ, привет!",
                              reply_markup=ReplyKeyboardMarkup(keyboard=[admin[0]], 
                                                               resize_keyboard=True))
     else:
@@ -50,7 +57,7 @@ async def starting(message: types.Message):
 
 
 @db.message(Command("edit"))
-async def edit(message: types.Message):
+async def edit(message: Message):
     if message.from_user.id == ADMIN_ID:
         await message.answer("Вход в режим редактирования", 
                              reply_markup=ReplyKeyboardMarkup(keyboard=[admin[1]], 
@@ -59,23 +66,21 @@ async def edit(message: types.Message):
         await message.reply("Да?)\nЗабавно~")
         
 @db.message(Command("del"))
-async def delIt(message: types.Message):
+async def delIt(message: Message):
     if message.from_user.id == ADMIN_ID:
-        await message.answer("Пока не готово", 
-                             reply_markup=ReplyKeyboardMarkup(keyboard=[admin[1]], 
-                                                              resize_keyboard=True))
+        await message.answer("Пока не готово")
     else:
         await message.reply("Да?)\nЗабавно~")
         
 @db.message(Command("add"))
-async def add(message: types.Message):
+async def add(message: Message):
     if message.from_user.id == ADMIN_ID:
         await message.answer("Пока не готово")
     else:
         await message.reply("Да?)\nЗабавно~")
         
 @db.message(Command("send"))
-async def send(message: types.Message):
+async def send(message: Message):
     if message.from_user.id == ADMIN_ID:
         await message.answer("Пока не готово")
     else:
@@ -83,29 +88,36 @@ async def send(message: types.Message):
 
 
 @db.message(Text("Корзина"))
-async def shopping_cart(message: types.Message, state: FSMContext):
+async def shopping_cart(message: Message, state: FSMContext):
     shopper = await state.get_data()
 
 
 @db.message(Text("Каталог"))
-async def сatalog(message: types.Message):
+async def сatalog(message: Message, state: FSMContext):
     if len(catalog) == 0: 
         await message.answer("Каталог пуст")
     else:
-        await message.answer('\n'.join(catalog))
+        await message.answer('\n'.join(catalog), 
+                             reply_markup=ReplyKeyboardMarkup(keyboard=[catal], 
+                                                              resize_keyboard=True))
+        await state.set_state(Form.type_order)
 
+@db.message(Form.type_order)
+async def typeOrder(message: Message, state: FSMContext):
+    await state.update_data(type=message.text)
+    await state.set_state(Form.text_order)
+    await message.answer("Пожалуйста, опишите заказ для ознакомления.", 
+                         reply_markup=ReplyKeyboardRemove())
 
-@db.message()
-async def pool_mess(message: types.Message):
-    if message.text in catalog:
-        await message.reply("Для цены и подробностей напишите ему: @HERcGORIb")
-    else:
-        await message.reply("Я не понимаю тебя...")
+@db.message(Form.text_order)
+async def textOrder(message: Message, state: FSMContext):
+    await state.update_data(text_order=message.text)
+    await message.answer("Спасибо! В течение дня с вами свяжутся для уточнения цены и сроков.")
+    await message.send_copy(ADMIN_ID)
+    await message.answer()
     
 async def main() -> None:
-    # Initialize Bot instance with a default parse mode which will be passed to all API calls
     bot = Bot(TOKEN, parse_mode=ParseMode.HTML)
-    # And the run events dispatching
     await db.start_polling(bot)
 
 
