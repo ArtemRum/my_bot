@@ -2,8 +2,6 @@ import asyncio
 import logging
 import sys
 
-import pandas as pd
-
 from aiogram import Bot, Dispatcher, F, Router, html
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, Filter
@@ -18,16 +16,16 @@ from aiogram.types import (
 
 
 
-TOKEN, ADMIN_ID = '6787439807:AAEmYhMTVNTgup9O5N2vC7Wb8h-JJeoywFg', 1319331554
+TOKEN, ADMIN_ID = 'TOKEN', 1234567890
 
 bot = Bot(TOKEN)
 db = Dispatcher()
 
-users = [KeyboardButton(text="Каталог"), KeyboardButton(text="Корзина")]
+users = [KeyboardButton(text="Примеры работ"), KeyboardButton(text="Создать заказ")]
 admin = [users+[KeyboardButton(text='/edit')], 
          [KeyboardButton(text="/del"), KeyboardButton(text="/add"), KeyboardButton(text="/send")]]
 
-catalog = ['Бот', 'Игра']
+catalog = ['https://github.com/ArtemRum']
 
 catal = [KeyboardButton(text=i) for i in catalog]
 
@@ -87,34 +85,30 @@ async def send(message: Message):
         await message.reply("Да?)\nЗабавно~")
 
 
-@db.message(Text("Корзина"))
-async def shopping_cart(message: Message, state: FSMContext):
-    shopper = await state.get_data()
-
-
-@db.message(Text("Каталог"))
-async def сatalog(message: Message, state: FSMContext):
+@db.message(Text("Примеры работ"))
+async def сatalog(message: Message):
     if len(catalog) == 0: 
-        await message.answer("Каталог пуст")
+        await message.answer("Пока нет.")
     else:
-        await message.answer('\n'.join(catalog), 
-                             reply_markup=ReplyKeyboardMarkup(keyboard=[catal], 
-                                                              resize_keyboard=True))
-        await state.set_state(Form.type_order)
+        await message.answer('\n'.join(catalog))
+        
+@db.message(Text("Создать заказ"))
+async def shopping_cart(message: Message, state: FSMContext):
+    await message.answer("Напишите описание для быстрого ознакомления.", 
+                         reply_markup=ReplyKeyboardRemove())
+    await state.set_state(Form.type_order)
 
 @db.message(Form.type_order)
 async def typeOrder(message: Message, state: FSMContext):
     await state.update_data(type=message.text)
     await state.set_state(Form.text_order)
-    await message.answer("Пожалуйста, опишите заказ для ознакомления.", 
-                         reply_markup=ReplyKeyboardRemove())
+    await message.answer("Опишите заказ наиболее подробно, что бы я смог понять, смогу ли я правда это сделать.")
 
 @db.message(Form.text_order)
 async def textOrder(message: Message, state: FSMContext):
-    await state.update_data(text_order=message.text)
+    f = await state.get_data()
     await message.answer("Спасибо! В течение дня с вами свяжутся для уточнения цены и сроков.")
-    await message.send_copy(ADMIN_ID)
-    await message.answer()
+    await bot.send_message(ADMIN_ID, '@'+message.from_user.username+'\n'+f['type']+'\n'+message.text)
     
 async def main() -> None:
     bot = Bot(TOKEN, parse_mode=ParseMode.HTML)
